@@ -1,0 +1,53 @@
+---
+
+module: vsphere_extraconfig
+
+short_description:
+
+  - Change VMX settings on a guest on VMWare vSphere.  This module has
+    a dependency on pysphere >= 1.7.
+
+description:
+  - This Change VMX settings on a guest on VMWare vSphere
+  - This module requires the pysphere python module.
+
+version_added: "1.4"
+author: Thierry Delamare
+
+notes:
+
+  - This module ought to be run from a system that can access vSphere
+    directly.  Either by using local_action, or using delegate_to.
+
+  - I assemble this before M(vsphere_guest) was available.
+
+  - Turned out that as by 1.9.1 C(vm_extra_config) do not work with
+    C(reconfigured).
+
+  - Alias similar to M(vsphere_guest) added.
+
+options:
+  host:
+    description:
+      - The vSphere server from the cluster the virtual server is located on.
+    required: true
+    aliases: [ vcenter, vcenter_hostname ]
+  login:
+    description:
+      - The login name to authenticate on the vSphere cluster.
+    required: true
+    aliases: [ user, username ]
+  password:
+    description:
+      - The password to authenticate on the vSphere cluster.
+    required: true
+    aliases: [ pass ]
+  guest:
+    description:
+      - The virtual server to change the options on
+    required: true
+    aliases: [ vm, name ]
+  xtracnfset:
+    description:
+      - a dict of options to set
+    aliases: [ vm_extra_config ]

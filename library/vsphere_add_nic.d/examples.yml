@@ -1,0 +1,6 @@
+---
+
+- local_action:
+    vsphere_clone host={{ host }} login={{ login }} password={{ password }}
+    guest={{ inventory_hostname }}.epiconcept.fr net=ADM
+    register: admin

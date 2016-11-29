@@ -1,0 +1,7 @@
+---
+
+- vsphere_status:
+    vcenter_hostname: vcenter.mydomain.local
+    username: myuser
+    password: mypass
+    guest: newvm001

@@ -1,0 +1,206 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# (c) 2013, <t.delamare@epiconcept.fr>
+#
+# This module is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this software.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+DOCUMENTATION = '''
+---
+
+module: vsphere_add_nic
+
+short_description: Add a NIC on a guest on VMWare vSphere
+
+description:
+
+  - This module add an network interface to a specific guest on VMWare vSphere.
+  - This module requires the pysphere python module.
+  - This module was a quick and dirty mix of:
+    - `vsphere_facts <https://github.com/ansible-provisioning/ansible-provisioning/blob/master/library/vsphere_facts>`__
+    - `PySphere - Missing Pieces <http://snapfiber.com/pysphere-missing-pieces.html>`__
+
+options:
+
+  host:
+    description:
+      - The vSphere server from the cluster the virtual server is located on.
+    required: true
+  login:
+    description:
+      - The login name to authenticate on the vSphere cluster.
+    required: true
+  password:
+    description:
+      - The password to authenticate on the vSphere cluster.
+    required: true
+  guest:
+    description:
+      - The virtual server to add a NIC on
+    required: true
+  net:
+    description:
+      - The name of the network the NIC will be attached
+    required: true
+
+notes:
+
+  - This module ought to be run from a system that can access vSphere directly.
+    Either by using local_action, or using delegate_to.
+'''
+
+EXAMPLES = '''
+---
+
+- local_action:
+    vsphere_clone host={{ host }} login={{ login }} password={{ password }}
+    guest={{ inventory_hostname }}.epiconcept.fr net=ADM
+    register: admin
+'''
+
+import sys
+try:
+    import pysphere
+    from pysphere import VIServer, VITask
+    from pysphere.resources import VimService_services as VI
+except ImportError:
+    print "failed=True msg='pysphere python module unavailable'"
+    sys.exit(1)
+
+import ssl
+
+def main():
+
+    module = AnsibleModule(
+        argument_spec = dict(
+            vcenter_hostname = dict(required=True),
+            username = dict(required=True),
+            password = dict(required=True),
+            guest = dict(required=True),
+            validate_certs=dict(required=False, type='bool', default=True),
+            net = dict(required=True),
+        ),
+        supports_check_mode=True
+    )
+
+    host = module.params.get('vcenter_hostname')
+    login = module.params.get('username')
+    password = module.params.get('password')
+    guest = module.params.get('guest')
+    validate_certs = module.params['validate_certs']
+    net = module.params.get('net')
+
+    server = VIServer()
+    if not validate_certs:
+        default_context = ssl._create_default_https_context
+        ssl._create_default_https_context = ssl._create_unverified_context
+    try:
+        # server.connect(host, login, password, trace_file='debug.txt')
+        server.connect(host, login, password)
+    except Exception, e:
+        module.fail_json(msg='Failed to connect to %s: %s' % (host, e))
+
+    # Check if the VM exists before continuing    
+    try:
+        vm = server.get_vm_by_name(guest)
+    except pysphere.resources.vi_exception.VIException, e:
+        module.fail_json(msg=e.message)
+
+    # Check if iface exists
+
+    data = vm.get_properties()
+    ifidx = 0
+    for entry in vm.properties.config.hardware.device:
+
+        if not hasattr(entry, 'macAddress'): continue
+
+        if entry.deviceInfo.summary == net:
+            module.exit_json(changed = False, macaddress = entry.macAddress)
+
+        ifidx += 1
+
+    # do nothing if in dry mode
+    if module.check_mode:
+        module.exit_json(changed = True)
+
+    request = VI.ReconfigVM_TaskRequestMsg()
+    _this = request.new__this(vm._mor)
+    _this.set_attribute_type(vm._mor.get_attribute_type())
+    request.set_element__this(_this)
+
+    spec = request.new_spec()
+
+    dev_change = spec.new_deviceChange()
+    dev_change.set_element_operation("add")
+
+    # We use a VMXNET3 controller here.  Introspect into
+    # VI.ns0 for all available controller names.
+    nic_ctlr = VI.ns0.VirtualVmxnet3_Def("nic_ctlr").pyclass()
+
+    nic_backing = VI.ns0.VirtualEthernetCardNetworkBackingInfo_Def("nic_backing").pyclass()
+    nic_backing.set_element_deviceName(net)
+    nic_ctlr.set_element_addressType("generated")
+    nic_ctlr.set_element_backing(nic_backing)
+    nic_ctlr.set_element_key(4)
+    dev_change.set_element_device(nic_ctlr)
+
+    spec.set_element_deviceChange([dev_change])
+    request.set_element_spec(spec)
+
+    task = server._proxy.ReconfigVM_Task(request)._returnval
+    vi_task = VITask(task, server)
+
+    # Wait for task to finish
+    status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                     vi_task.STATE_ERROR])
+
+    if status == vi_task.STATE_ERROR:
+        module.fail_json(msg=vi_task.get_error_message())
+
+    data = vm.get_properties(from_cache=False)
+    facts = {
+        'module_hw': True,
+        'hw_name': vm.properties.name,
+        'hw_guest_full_name':  vm.properties.config.guestFullName,
+        'hw_guest_id': vm.properties.config.guestId,
+        'hw_product_uuid': vm.properties.config.uuid,
+        'hw_processor_count': vm.properties.config.hardware.numCPU,
+        'hw_memtotal_mb': vm.properties.config.hardware.memoryMB,
+    }
+
+    ifidx = 0
+    for entry in vm.properties.config.hardware.device:
+
+        if not hasattr(entry, 'macAddress'): continue
+
+        if entry.deviceInfo.summary == net:
+            macaddress = entry.macAddress
+
+        factname = 'hw_eth' + str(ifidx)
+        facts[factname] = {
+            'addresstype': entry.addressType,
+            'label': entry.deviceInfo.label,
+            'macaddress': entry.macAddress,
+            'macaddress_dash': entry.macAddress.replace(':', '-'),
+            'summary': entry.deviceInfo.summary,
+        }
+
+        ifidx += 1
+
+    module.exit_json(changed = True, ansible_facts = facts, macaddress = macaddress)
+
+# this is magic, see lib/ansible/module_common.py
+#<<INCLUDE_ANSIBLE_MODULE_COMMON>>
+main()

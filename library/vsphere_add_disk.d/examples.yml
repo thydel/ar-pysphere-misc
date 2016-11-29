@@ -1,0 +1,3 @@
+- local_action:
+    host={{ host }} login={{ login }} password={{ password }}
+    guest={{ inventory_hostname }}.epiconcept.fr disk=1 size=40

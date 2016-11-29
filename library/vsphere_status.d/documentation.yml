@@ -1,0 +1,43 @@
+---
+
+module: vsphere_status
+
+short_description: Gather status for a guest on VMWare vSphere
+
+description:
+  - This module gathers status for a specific guest on VMWare vSphere.
+  - This module requires the pysphere python module.
+
+options:
+  vcenter_hostname:
+    description:
+      - The hostname of the vcenter server the module will connect to, to create the guest.
+    required: true
+    default: null
+    aliases: []
+  guest:
+    description:
+      - The virtual server name you wish to manage.
+    required: true
+  username:
+    description:
+      - Username to connect to vcenter as.
+    required: true
+    default: null
+  password:
+    description:
+      - Password of the user to connect to vcenter as.
+    required: true
+    default: null
+
+version_added: "1.9"
+author: Thierry Delamare
+
+notes:
+
+  - This module ought to be run from a system that can access vSphere directly.
+    Either by using local_action, or using delegate_to.
+
+  - Mimic M(vsphere_guest) which lack the feature.
+
+  - Cloned from https://github.com/ansible-provisioning

@@ -1,0 +1,48 @@
+---
+
+module: vsphere_add_disk
+
+short_description: Add a disk on a guest on VMWare vSphere
+
+description:
+
+  - This module add a disk to a specific guest on VMWare vSphere.
+  - This module requires the pysphere python module.
+  - This module was a quick and dirty mix of:
+    - U(https://github.com/ansible-provisioning/ansible-provisioning/blob/master/library/vsphere_facts)
+    - U(https://groups.google.com/forum/#!topic/pysphere/Ehu12Umaruk)
+    - U(https://groups.google.com/forum/#!topic/pysphere/Ulutb1oNDOI)
+
+author: Thierry Delamare
+
+notes:
+
+  - This module ought to be run from a system that can access vSphere directly.
+    Either by using local_action, or using delegate_to.
+
+options:
+  host:
+    description:
+      - The vSphere server from the cluster the virtual server is located on.
+    required: true
+    aliases: [ vcenter ]
+  login:
+    description:
+      - The login name to authenticate on the vSphere cluster.
+    required: true
+    aliases: [ user ]
+  password:
+    description:
+      - The password to authenticate on the vSphere cluster.
+    required: true
+    aliases: [ pass ]
+  guest:
+    description:
+      - The virtual server to add a disk on
+    required: true
+    aliases: [ vm, name ]
+  disk:
+    description:
+      - The unit number of the disk to be added (zero based)
+    required: true
+    aliases: [ unit ]

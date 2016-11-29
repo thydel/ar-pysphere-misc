@@ -1,0 +1,41 @@
+---
+
+module: vsphere_add_nic
+
+short_description: Add a NIC on a guest on VMWare vSphere
+
+description:
+
+  - This module add an network interface to a specific guest on VMWare vSphere.
+  - This module requires the pysphere python module.
+  - This module was a quick and dirty mix of:
+    - `vsphere_facts <https://github.com/ansible-provisioning/ansible-provisioning/blob/master/library/vsphere_facts>`__
+    - `PySphere - Missing Pieces <http://snapfiber.com/pysphere-missing-pieces.html>`__
+
+options:
+
+  host:
+    description:
+      - The vSphere server from the cluster the virtual server is located on.
+    required: true
+  login:
+    description:
+      - The login name to authenticate on the vSphere cluster.
+    required: true
+  password:
+    description:
+      - The password to authenticate on the vSphere cluster.
+    required: true
+  guest:
+    description:
+      - The virtual server to add a NIC on
+    required: true
+  net:
+    description:
+      - The name of the network the NIC will be attached
+    required: true
+
+notes:
+
+  - This module ought to be run from a system that can access vSphere directly.
+    Either by using local_action, or using delegate_to.
