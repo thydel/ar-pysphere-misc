@@ -107,10 +107,10 @@ def main():
     disk_unit = int(module.params.get('disk'))
     disk_size = int(module.params.get('size'))
 
-    if disk_unit < 1 or disk_unit > 4:
+    if disk_unit < 1 or disk_unit > 6:
         module.fail_json(msg='Dubious disk unit')
 
-    if disk_size < 10 or disk_unit > 200:
+    if disk_size < 8 or disk_unit > 2000:
         module.fail_json(msg='Dubious disk size')
         
     server = VIServer()
